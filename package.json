@@ -1,0 +1,25 @@
+{
+  "name": "websocket",
+  "version": "1.0.0",
+  "description": "使用node实现一个简单的websocket通信",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/daipeng7/websocket.git"
+  },
+  "keywords": [
+    "websocket",
+    "node",
+    "web",
+    "socket"
+  ],
+  "author": "daipeng7",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/daipeng7/websocket/issues"
+  },
+  "homepage": "https://github.com/daipeng7/websocket#readme"
+}
