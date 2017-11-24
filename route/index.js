@@ -1,4 +1,4 @@
-const Router = require('../Router');
+const Router = require('../router');
 
 Router.get('/', (req, res) => {
     
