@@ -1,6 +1,17 @@
-let Router = (req, res) => {
+const getHash = require('hash-sum');
+
+let Router = (socket) => {
     
 }
+let getList = {};
+let postList = {};
 
+Router.get = (url,callback) => {
+    getList[ getHash(url) ] = callback;
+}
 
-exports.Router = Router;
+Router.post = (url,callback) => {
+    postList[ getHash(url) ] = callback;
+}
+
+module.exports = Router;
