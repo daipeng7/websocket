@@ -15,8 +15,22 @@
         <p>result:</p>
         <p class="result"></p>
     </div>
+    <div>
+        <button id="btn">发送</button>
+    </div>
 </body>
 <script>
+    var btn = document.getElementById('btn');
+    btn.onclick = function startSocket(){
+        debugger;
+        var socket;
+        socket = new WebSocket('ws://localhost:8081');
+        socket.addEventListener('open', (event) => {
+            socket.send('Hello Server!');
+        });
+        socket.addEventListener('message', (event) => {
 
+        });
+    }
 </script>
 </html>

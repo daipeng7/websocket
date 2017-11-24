@@ -9,8 +9,8 @@ let clientList = {};
 let server = net.createServer();
 server.on('connection', (socket) => {
     route(socket);
-    socket.on('data', () => {
-
+    socket.on('data', (buffer) => {
+        buffer.toString()
     }).on('end', () => {
 
     }).on('error', () => {
