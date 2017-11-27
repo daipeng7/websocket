@@ -48,6 +48,6 @@ exports.resHTML = (url, req, res) => {
     fs.readFile(_address,  (err, file) => {
         res.setHeader('Content-Length', Buffer.byteLength(file));
         res.setHeader('Content-Type', 'text/html');
-        res.end(file);
+        res.write(file);
     });
 }
