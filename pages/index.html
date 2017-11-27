@@ -8,29 +8,79 @@
 </head>
 <body>
     <div>
-        <label>messge：</label>
-        <input type="text">
+        <label style="vertical-align:top;">To Messge：</label>
+        <textarea id="message" type="text" value=""></textarea>
     </div>
     <div>
-        <p>result:</p>
-        <p class="result"></p>
+        <p>Get Messge：</p>
+        <p class="result">
+
+        </p>
     </div>
     <div>
         <button id="btn">发送</button>
     </div>
 </body>
 <script>
-    var btn = document.getElementById('btn');
-    btn.onclick = function startSocket(){
-        debugger;
-        var socket;
-        socket = new WebSocket('ws://localhost:8081');
-        socket.addEventListener('open', (event) => {
-            socket.send('Hello Server!');
-        });
-        socket.addEventListener('message', (event) => {
 
-        });
+    if(window.WebSocket){
+        init();
+    }else {
+        alert('this browser does not support WebSocket');
     }
+    
+    function init(){
+        //创建WebSocket实例，可以使用ws和wss。第二个参数可以选填自定义协议，如果多协议，可以以数组方式
+        var socket = new WebSocket('ws://localhost:8081');
+        /**
+         * 1、open
+         * 服务器相应WebSocket连接请求触发
+         */
+        socket.onopen = (event) => {
+            debugger;
+            socket.send('Hello Server!');
+        };
+        /**
+         * 2、message
+         *  服务器有 响应数据 触发
+         */
+        socket.onmessage = (event) => {
+            debugger;
+            console.log(event.data);
+        };
+        /**
+         * 3、error
+         *  出错时触发，并且会关闭连接。这时可以根据错误信息进行按需处理
+         */
+        socket.onerror = (event) => {
+            debugger;
+        }
+        /**
+         * 4、close
+         *  连接关闭时触发，这在两端都可以关闭。另外如果连接失败也是会触发的。
+         *  针对关闭一般我们会做一些异常处理,关于异常参数：
+         *  (1)、socket.readyState 
+         *          2 正在关闭
+         *          3 已经关闭
+         *  (2)、event.wasClean [Boolean]  true 客户端或者服务器端调用close主动关闭，false反之
+         *  (3)、event.code [Number] 关闭连接的状态码。socket.close(code, reason)
+         *  (4)、event.reason [String] 关闭连接的原因。socket.close(code, reason)
+         *          
+         */
+        socket.onclose = (event) => {
+            debugger;
+        }
+        
+        var btn = document.getElementById('btn');
+        btn.onclick = function startSocket(){
+            //判断是否连接是否还存在
+            if(socket.readyState == WebSocket.OPEN){
+                var message = document.getElementById("message").value;
+                if(message != "") socket.send(message);
+            }
+        }
+    }
+    
+    
 </script>
 </html>

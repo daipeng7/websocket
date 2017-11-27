@@ -1,7 +1,16 @@
 const getHash = require('hash-sum');
+const path = require('path');
+const fs = require('fs');
+const { resHTML } = require('../util');
 
-let Router = (socket) => {
-    
+let Router = (req, res) => {
+    const _url = req.url;
+    const _extname = path.extname(_url);
+    switch(_extname){
+        case '.html' : {
+            resHTML(_url, req, res);
+        }
+    }
 }
 let getList = {};
 let postList = {};

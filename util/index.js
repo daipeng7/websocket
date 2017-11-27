@@ -1,8 +1,11 @@
+const { exec } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const url = require( 'url' );
+const querystring = require( 'querystring' );
 /**
 * 获取数据方法:GET/POST
 */ 
-const url = require( 'url' );
-const querystring = require( 'querystring' );
 
 // POST
 let getPostParams = (req,callback)=>{
@@ -39,4 +42,12 @@ exports.quest = ( req,callback )=>{
         break;
     }
 }
-
+exports.resHTML = (url, req, res) => {
+    if(path.isAbsolute(url)) url = url.slice(1);
+    const _address = path.resolve(url);
+    fs.readFile(_address,  (err, file) => {
+        res.setHeader('Content-Length', Buffer.byteLength(file));
+        res.setHeader('Content-Type', 'text/html');
+        res.end(file);
+    });
+}
