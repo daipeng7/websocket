@@ -14,13 +14,13 @@ var unwrap = function (data) {
     return data.slice(1, data.length - 1);
 }
 
-exports.bindSocketEvent = function (sock) {
-    sock
+exports.bindSocketEvent = function (socket) {
+    socket
         .on('data', function (buffer) {
             var data = unwrap(buffer);
             console.log('socket receive data : ', buffer, data, '\n>>> ' + data);
             // send('hello html5,'+Date.now())
-            sock.emit('send', data);
+            socket.emit('send', data);
         })
         .on('close', function () {
             console.log('socket close');
@@ -29,6 +29,6 @@ exports.bindSocketEvent = function (sock) {
             console.log('socket end');
         })
         .on('send', function (data) { //自定义事件
-            sock.write(wrap(data), 'binary');
+            socket.write(wrap(data), 'binary');
         })
 };
