@@ -4,8 +4,10 @@
 const hash = require('hash-sum');
 const http = require('http');
 const route = require('../route');
-const { handSocket } = require('./handSocket');
+const { handshaking } = require('./handshaking');
 const { bindSocketEvent } = require('./bindSocket');
+
+const port = 8081;
 
 let clientList = {};
 let server = http.createServer();
@@ -42,7 +44,7 @@ server.on('upgrade', (req, socket, head) =>{
 
     //握手发送握手信息
     try{
-        handSocket(req, socket, head);
+        handshaking(req, socket, head);
     }catch(error){
         console.log(error);
         socket.end();
@@ -54,6 +56,6 @@ server.on('close', () => {
 
 });
 
-server.listen(8081, () => {
+server.listen(port, () => {
     console.log('sever running!')
 });

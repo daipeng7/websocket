@@ -1,26 +1,26 @@
-## websocket ##
+# 使用nodeJS在HTTP上实现WebSocket #
 
-### 首先 ###
-	长连接：
-		一个连接上可以连续发送多个数据包，在连接期间，如果没有数据包发送，需要双方发链路检查包。
-	短链接：
-		是只通讯双方有数据交互时，就建立一个连接，数据发送完成后，则断开此连接。
-	TCP/IP：
-		TCP/IP属于传输层，主要解决数据在网络中的传输问题，只管传输数据。但是那样对传输的数据没有一个规范的封装、解析等处理，使得传输的数据就很难识别，所以才有了应用层协议对数据的封装、解析等，如HTTP协议。
-	HTTP：
-		HTTP是应用层协议，封装解析传输的数据。
-		从HTTP1.1开始其实就默认开启了长连接，也就是请求header中看到的Connection:Keep-alive。但是这个长连接只是说保持了（服务器可以告诉客户端保持时间Keep-Alive:timeout=200;max=20;）这个TCP通道，直接Request - Response，而不需要再创建一个连接通道，做到了一个性能优化。但是HTTP通讯本身还是Request - Response。
-	socket：
-		与HTTP不一样，socket不是协议，它是在程序层面上对传输层协议（可以主要理解为TCP/IP）的接口封装。
-		我们知道传输层的协议，是解决数据在网络中传输的，那么socket就是传输通道两端的接口。所以对于前端而言，socket也可以简单的理解为对TCP/IP的抽象协议。
-	WebSocket：
-		相对于socket，前面加了个web，顾名思义。有浏览器提供的对socket的再次封装。
-		能够让客户端和远程服务端通过web建立全双工通信。websocket提供ws和wss两种URL方案。
+## 首先 ##
 
-### WebSocket API ###
+**长连接**：一个连接上可以连续发送多个数据包，在连接期间，如果没有数据包发送，需要双方发链路检查包。
+
+**短链接**：是只通讯双方有数据交互时，就建立一个连接，数据发送完成后，则断开此连接。
+
+**TCP/IP**：TCP/IP属于传输层，主要解决数据在网络中的传输问题，只管传输数据。但是那样对传输的数据没有一个规范的封装、解析等处理，使得传输的数据就很难识别，所以才有了应用层协议对数据的封装、解析等，如HTTP协议。
+
+**HTTP**：HTTP是应用层协议，封装解析传输的数据。
+从HTTP1.1开始其实就默认开启了长连接，也就是请求header中看到的Connection:Keep-alive。但是这个长连接只是说保持了（服务器可以告诉客户端保持时间Keep-Alive:timeout=200;max=20;）这个TCP通道，直接Request - Response，而不需要再创建一个连接通道，做到了一个性能优化。但是HTTP通讯本身还是Request - Response。
+
+**socket**：与HTTP不一样，socket不是协议，它是在程序层面上对传输层协议（可以主要理解为TCP/IP）的接口封装。
+我们知道传输层的协议，是解决数据在网络中传输的，那么socket就是传输通道两端的接口。所以对于前端而言，socket也可以简单的理解为对TCP/IP的抽象协议。
+
+**WebSocket**：
+WebSocket协议能够让客户端和远程服务端通过web建立全双工通信。websocket提供ws和wss两种URL方案。[协议英文文档](https://tools.ietf.org/rfc/rfc6455.txt)和[中文翻译](http://blog.csdn.net/stoneson/article/details/8063802)
+
+## WebSocket API ##
 使用WebSocket构造函数创建一个WebSocket连接，返回一个websocket实例。通过这个实例我们可以监听事件，这些事件可以知道什么时候简历连接，什么时候有消息被推过来了，什么时候发生错误了，时候连接关闭。我们可以使用node搭建一个WebSocket服务器来看看，[源码](https://github.com/daipeng7/websocket )。同样也可以调用[websocket.org](http://demos.kaazing.com/echo/)网站的demo服务器[http://demos.kaazing.com/echo/](http://demos.kaazing.com/echo/)。
 
-#### 事件 ####
+### 事件 ###
 
     //创建WebSocket实例，可以使用ws和wss。第二个参数可以选填自定义协议，如果多协议，可以以数组方式
     var socket = new WebSocket('ws://demos.kaazing.com/echo');
@@ -116,6 +116,104 @@
 |protocol |	String/Array|在构造函数中，protocol参数让服务端知道客户端使用的WebSocket协议。而在实例socket中就是连接建立前为空，连接建立后为客户端和服务器端确定下来的协议名称。|
 |readyState |	String	|只读。连接当前状态，这些状态是与常量相对应的。|
 |extensions |	String	|服务器选择的扩展。目前，这只是一个空字符串或通过连接协商的扩展列表。|
+
+## WebSocket实现 ##
+
+
+WebSocket 协议有两部分：握手、数据传输。
+
+其中，握手无疑是关键，是一切的先决条件。
+
+#### 握手 ####
+
+- **客户端握手请求**
+		
+		//创建WebSocket实例，可以使用ws和wss。第二个参数可以选填自定义协议，如果多协议，可以以数组方式
+        var socket = new WebSocket('ws://localhost:8081', [protocol]);
+
+	出于WebSocket的产生原因是为了浏览器能实现同服务器的全双工通信和HTTP协议在浏览器端的广泛运用（当然也不全是为了浏览器，但是主要还是针对浏览器的）。所以WebSocket的握手是HTTP请求的升级。
+	WebSocket客户端请求头示例：
+		
+		GET /chat HTTP/1.1   //必需。
+		Host: server.example.com  // 必需。WebSocket服务器主机名
+		Upgrade: websocket // 必需。并且值为" websocket"。有个空格
+		Connection: Upgrade // 必需。并且值为" Upgrade"。有个空格
+		Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ== // 必需。其值采用base64编码的随机16字节长的字符序列。
+		Origin: http://example.com //浏览器必填。头域（RFC6454）用于保护WebSocket服务器不被未授权的运行在浏览器的脚本跨源使用WebSocket API。
+		Sec-WebSocket-Protocol: chat, superchat //选填。可用选项有子协议选择器。
+		Sec-WebSocket-Version: 13 //必需。版本。
+	
+	WebSocket客户端将上述请求发送到服务器。如果是调用浏览器的WebSocket API,浏览器会自动完成完成上述请求头。
+
+- **服务端握手响应**
+	
+	服务器得向客户端证明它接收到了客户端的WebSocket握手，为使服务器不接受非WebSocket连接，防止攻击者通过XMLHttpRequest发送或表单提交精心构造的包来欺骗WebSocket服务器。服务器把两块信息合并来形成响应。第一块信息来自客户端握手头域Sec-WebSocket-Key，如Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==。
+	对于这个头域，服务器取头域的值（需要先消除空白符），以字符串的形式拼接全局唯一的（GUID，[RFC4122]）标识：258EAFA5-E914-47DA-95CA-C5AB0DC85B11，此值不大可能被不明白WebSocket协议的网络终端使用。然后进行SHA-1 hash（160位）编码，再进行base64编码，将结果作为服务器的握手返回。具体如下：
+		
+		请求头：Sec-WebSocket-Key:dGhlIHNhbXBsZSBub25jZQ==
+		
+		取值，字符串拼接后得到："dGhlIHNhbXBsZSBub25jZQ==258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+		
+		SHA-1后得到： 0xb3 0x7a 0x4f 0x2c 0xc0 0x62 0x4f 0x16 0x90 0xf6 0x46 0x06 0xcf 0x38 0x59 0x45 0xb20xbe 0xc4 0xea
+		
+		Base64后得到： s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
+		
+		最后的结果值作为响应头Sec-WebSocket-Accept 的值。
+	最终形成WebSocket服务器端的握手响应：
+
+		HTTP/1.1 101 Switching Protocols   //必需。响应头。状态码为101。任何非101的响应都为握手未完成。但是HTTP语义是存在的。
+		Upgrade: websocket  // 必需。升级类型。
+		Connection: Upgrade //必需。本次连接类型为升级。
+		Sec-WebSocket-Accept:s3pPLMBiTxaQ9kYGzzhZRbK+xOo=  //必需。表明服务器是否愿意接受连接。如果接受，值就必须是通过上面算法得到的值。
+	当然响应头还存在一些可选字段。主要的可选字段为Sec-WebSocket-Protocol，是对客户端请求中所提供的Sec-WebSocket-Protocol子协议的选择结果的响应。当然cookie什么的也是可以的。
+
+		//handshaking.js
+		const crypto = require('crypto');
+			const cryptoKey = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
+			
+			// 计算握手响应accept-key
+			let challenge = (reqKey) => {
+			    reqKey += cryptoKey;
+			    // crypto.vetHashes()可以获得支持的hash算法数组，我这里得到46个
+			    reqKey = reqKey.replace(/\s/g,"");
+			    // crypto.createHash('sha1').update(reqKey).digest()得到的是一个Uint8Array的加密数据，需要将其转为base64
+			    return crypto.createHash('sha1').update(reqKey).digest().toString('base64');
+			}
+			
+			exports.handshaking = (req, socket, head) => {
+			    let _headers = req.headers,
+			        _key = _headers['sec-websocket-key'],
+			        resHeaders = [],
+			        br = "\r\n";
+			    resHeaders.push(
+			        'HTTP/1.1 101 WebSocket Protocol Handshake is OK',
+			        'Upgrade: websocket',
+			        'Connection: Upgrade',
+			        'Sec-WebSocket-Origin: ' + _headers.origin,
+			        'Sec-WebSocket-Location: ws://' + _headers.host + req.url,
+			    );
+			    let resAccept = challenge(_key);
+			    resHeaders.push('Sec-WebSocket-Accept: '+ resAccept + br, head);
+			    socket.write(resHeaders.join(br), 'binary');
+			}
+
+- **握手关闭**
+
+	关闭握手可用使用TCP直接关闭连接的方法来关闭握手。但是TCP关闭握手不总是端到端可靠的，特别是出现拦截代理和其他的中间设施。也可以任何一端发送带有指定控制序号（比如说状态码1002,协议错误）的数据的帧来开始关闭握手，当另一方接收到这个关闭帧，就必须关闭连接。
+
+#### 数据传输 ####
+
+在WebSocket协议中,数据传输使用的是一系列数据帧，出于安全考虑和避免网络截获，客户端发送的数据帧必须进行掩码处理后才能发送到服务器，不论是否是在TLS安全协议上都要进行掩码处理。服务器如果没有收到掩码处理的数据帧时应该关闭连接，发送一个1002的状态码。服务器不能将发送到客户端的数据进行掩码处理，如果客户端收到掩码处理的数据帧必须关闭连接。
+
+
+
+
+
+
+
+
+
+
 
 
 
