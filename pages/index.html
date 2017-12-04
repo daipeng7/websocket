@@ -76,7 +76,7 @@
             //判断是否连接是否还存在
             if(socket.readyState == WebSocket.OPEN){
                 var message = document.getElementById("message").value;
-                if(message != "") socket.send(message);
+                if(message != "") socket.send(formData);
             }
         }
     }

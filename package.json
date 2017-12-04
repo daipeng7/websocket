@@ -4,7 +4,7 @@
   "description": "使用node实现一个简单的websocket通信",
   "main": "index.js",
   "scripts": {
-    "dev" : "node server/index.js",
+    "dev": "node server/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

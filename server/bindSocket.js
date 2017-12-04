@@ -1,13 +1,13 @@
 const DataHandler = require("./dataHandler");
-
+const socketList = [];
 
 
 exports.bindSocketEvent = (socket) => {
     let dataHandler = new DataHandler(socket);
     socket
         .on('data', (buffer) => {
-            dataHandler.getData(buffer, (data) => {
-                console.log(data.toString());
+            dataHandler.getData(buffer, (s, data) => {
+                // s.write(data.toString());
             });
         })
         .on('close', () => {
