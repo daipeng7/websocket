@@ -3,11 +3,13 @@ const socketList = [];
 
 
 exports.bindSocketEvent = (socket) => {
-    let dataHandler = new DataHandler(socket);
+    let websocket = new DataHandler(socket);
     socket
         .on('data', (buffer) => {
-            dataHandler.getData(buffer, (s, data) => {
-                // s.write(data.toString());
+            websocket.getData(buffer, (s, data) => {
+                let sendMsg = `server recieved message : ${data}`
+                let sendBuf = websocket.createData(sendMsg);
+                s.write(sendBuf);
             });
         })
         .on('close', () => {

@@ -211,10 +211,12 @@ WebSocket 协议有两部分：握手、数据传输。
 ![](https://i.imgur.com/y1XbSsB.png)
 
 - **数据帧**
+	
+	WebSocket的数据传输是要遵循特定的数据格式-数据帧（frame）.
 
 	![](https://i.imgur.com/yPcPxJ3.png)
 	
-	每一列代表一个字节，一个字节8位，每一位又代表一个二进制数。所有从客户端发往服务器的帧必须用32位值标记。
+	每一列代表一个字节，一个字节8位，每一位又代表一个二进制数。
 		
 	**fin：** 标识这一帧数据是否是该分块的最后一帧。
 	
@@ -236,7 +238,7 @@ WebSocket 协议有两部分：握手、数据传输。
 			1 客户端发送数据到服务端
 			0 服务端发送数据到客户端
 
-	**payload length：** 表示Payload data的总长度。占7位，或者7+2个字节、或者7+8个字节。但是payload data不一定一次就发送过来，可能分片发送或者分块后在分片后发送过来。所以可以通过他来判断是否是最后一帧。因为单独使用fin来判断是否为最后一帧，在分块发送的时候就会出现错误。
+	**payload length：** 表示Payload data的总长度。占7位，或者7+2个字节、或者7+8个字节。
 	
 			0-125，则是payload的真实长度
 			126，则后面2个字节形成的16位无符号整型数的值是payload的真实长度，125<数据长度<65535
@@ -245,10 +247,104 @@ WebSocket 协议有两部分：握手、数据传输。
 	**masking key：** 0或4字节，当masked为1的时候才存在，为4个字节，否则为0，用于对我们需要的数据进行解密
 
 	**payload data：** 我们需要的数据，如果masked为1，该数据会被加密，要通过masking key进行异或运算解密才能获取到真实数据。
+
+- **数据传输**
+
+	因为WebSocket服务端接收到的数据有可能是连续的数据帧，一个message可能分为多个帧发送。但如果使用fin来做消息边界是有问题的。
+
+	我发送了一个27378个字节的字符串，服务器端共接收到2帧，两帧的fin都为1,而且根据规范计算出来的两帧的payload data的长度为27372少了6个字节。这缺少的6个字节其实刚好等于2个固有字节加上maskingKey的4个字节，也就是说第二帧就是一个纯粹的数据帧。这又是怎么回事呢？？
+
+	从结果推测实现，我们接收到的第2帧的数据格式不是帧格式，说明数据没有先分帧（分片）后再发送的。而是将一帧分包后发送的。
+	
+	> 分片
+	> 
+	> 分片的主要目的是允许当消息开始但不必缓冲该消息时发送一个未知大小的消息。如果消息不能被分片，那么端点将不得不缓冲整个消息以便在首字节发生之前统计出它的长度。对于分片，服务器或中间件可以选择一个合适大小的缓冲，当缓冲满时，写一个片段到网络。
+
+	我们27378个字节的消息明显是知道message长度，那么就算这个message很大，根据规范1帧的数据长度理论上是0<数据长度<65535的，这种情况下应该1帧搞定，他也只是当做一帧来发送，但是由于传输限制，所以这一个帧（我们收到的像是好几帧一样）会被拆分成几块发送，除了第一块是带有fin、opcode、masked等标识符，之后收到的块都是纯粹的数据（也就是第一块的payload data 的后续部分），这个就是socket的将WebSocket分好的一帧数据进行了分包发送。那么这种一帧被socket分包发送，导致像是分帧（分片）发送的情况（服务器端本应该只就收一帧），在服务器端我暂时还没有想到怎样获取状态来处理。
+
+	总结，客户端发送数据，在实现时还是需要手动进行分帧（分片）,不然就按照一帧发送，小数据量无所谓；如果是大数据量，就会被socket自动分包发送。这个与WebSocket协议规范所标榜的自动分帧（分片），存在的差异应该是各个浏览器在对WebSocket协议规范的实现上偷工减料所造成的。所以我们看见socket.io等插件会有一个客户端接口，应该就是为了重新是实现WebSocket协议规范。从原理出发，我们接下来还是以小数据量（单帧）数据传输为例了。
 	 
 - **解析数据帧**
 
-	因为WebSocket服务端接收到的数据是连续的数据帧，一个message可能分为多个帧发送
+		//dataHandler.js
+		// 解析当前帧状态
+	    getState(data) {
+	        let data01 = data[0].toString(2), data02 = data[1].toString(2);//第一个字节和第二个字节的二进制字符串
+	        let fin = data01.slice(0, 1); // 得到fin字符串
+	        let opcode = parseInt(data01.slice(4), 2); //将opcode的4位二进制字符串转化为十进制
+	        let dataIndex = 2; // 初始数据下标，因为第一、二个字节肯定不是payload data
+	        let masked = data02.slice(0, 1); // masked 的值为1或者0
+	        let payloadLength = parseInt(data02.slice(1), 2); // payloadLength的值按照0-125， 126, 127分别取值
+	        let payloadData;
+	        let maskingKey; // 如果masked = 1则，表示是客户端发送过来的，需要用使用masking key掩码解析payload data
+	        
+	        
+	        if(payloadLength == 126){
+	            dataIndex += 2;//数据长度为后面2个字节，3、4
+	            payloadLength = data.readUInt16BE(2);// 使用Nodejs Buffer 方法。从3个字节开始左往右读16位（也就是两个字节3、4）.也可以使用data.readUIntBE(2, 2)
+	        }else if(payloadLength == 127){
+	            dataIndex += 8;//数据长度为后面8个字节，3、4、6、7、8、9、10、11
+	            payloadLength = data.readUInt32BE(2) + data.readUInt32BE(6); //先读取的3、4、6、7，然后读取的8、9、10、11。也可以使用data.readUIntBE(2,6)+data.readUIntBE(8,2)
+	        }
+	    
+	        // 判断是否有masking key
+	        if(masked === "1") {
+	            maskingKey = data.slice(dataIndex, dataIndex + 4);
+	            dataIndex += 4; //重新定位数据位置
+	            payloadData = data.slice(dataIndex);
+	        }
+	        let remains = this.state.remains || payloadLength; // 剩余数据长度
+	        remains = remains - payloadData.length; //还剩余多少长度的payload data
+	        
+	        Object.assign(this.state, {
+	            fin,
+	            opcode,
+	            masked,
+	            dataIndex,
+	            maskingKey,
+	            payloadData,
+	            payloadLength,
+	            remains
+	        });
+	    }
+		
+		// 收集本次message的所有数据
+	    getData(data, callback) {
+	        this.getState(data);
+	
+	        // 收集本次数据流数据
+	        this.dataList.push(this.state.payloadData);
+	
+	        // 长度为0，说明当前帧位最后一帧。
+	        if(this.state.remains == 0){
+	            let buf = Buffer.concat(this.dataList, this.state.payloadLength);
+				//使用掩码maskingKey解析所有数据
+	            let result = this.parseData(buf);
+				// 数据接收完成后回调回业务函数
+	            callback(this.socket, result);
+				//重置状态，表示当前message已经解析完成了
+	            this.resetState();
+	        }else{
+	            this.state.index++;
+	        }
+	    }
+	
+	    // 解析本次message所有数据
+	    parseData(allData, callback){
+	        let len = allData.length,
+	            i = 0;
+	        for(; i < len; i++){
+	            allData[i] = allData[i] ^ this.state.maskingKey[ i % 4 ];// 异或运算，使用maskingKey四个字节轮流进行计算
+	        }
+	        // 判断数据类型，如果为文本类型
+	        if(this.state.opcode == 1) allData = allData.toString();
+	
+	        return allData;
+	    }
+	
+- **组装需要发送的数据帧**	
+
+
 
 
 
