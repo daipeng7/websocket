@@ -1,14 +1,12 @@
-module.exports =  class DataHandler {
+module.exports =  class Handler {
     constructor(socket){
         this.socket = socket;
         this.state = {
             index : 0  // 同一份数据不同帧的序列号
         };
         this.dataList = [];
-    }
-
-    init() {
-
+        this.pingTimes = 0;
+        this.OPEN = true;
     }
 
     // 解析当前帧状态
@@ -55,7 +53,18 @@ module.exports =  class DataHandler {
     // 收集本次message的所有数据
     getData(data, callback) {
         this.getState(data);
-
+        // 如果状态码为8说明要关闭连接
+        if(this.state.opcode == 8) {
+            this.OPEN = false;
+            this.closeSocket();
+            return;
+        }
+        // 如果是心跳pong,回一个ping
+        if(this.state.opcode == 10) {
+            this.OPEN = true;
+            this.pingTimes = 0;// 回了pong就将次数清零
+            return;
+        }
         // 收集本次数据流数据
         this.dataList.push(this.state.payloadData);
 
@@ -124,6 +133,38 @@ module.exports =  class DataHandler {
         return frame;
     }
 
+    // 心跳检查
+    sendCheckPing(){
+        let _this = this;
+        let timer = setTimeout(() => {
+            clearTimeout(timer);
+            if (_this.pingTimes >= 3) {
+                _this.closeSocket();
+                return;
+            }
+            this.sendPing();
+            //记录心跳次数
+            _this.pingTimes++;
+            _this.sendCheckPing();
+        }, 5000);
+    }
+    // 发送心跳ping
+    sendPing() {
+        let ping = Buffer.alloc(2);
+        ping[0] = parseInt(10001001, 2);
+        ping[1] = 0;
+        this.writeData(ping);
+    }
+    //关闭连接
+    closeSocket(){
+        this.socket.end();
+    }
+    // 在连接中write数据
+    writeData(data){
+        if(this.OPEN){
+            this.socket.write(data);
+        }
+    }
     // 重置状态，当一份数据发送完成后重置
     resetState() {
         this.dataList = [];

@@ -1,15 +1,16 @@
-const DataHandler = require("./dataHandler");
+
+const Handler = require("./handler");
 const socketList = [];
 
 
 exports.bindSocketEvent = (socket) => {
-    let websocket = new DataHandler(socket);
+    let websocket = new Handler(socket);
+    websocket.sendCheckPing();
     socket
         .on('data', (buffer) => {
             websocket.getData(buffer, (s, data) => {
-                let sendMsg = `server recieved message : ${data}`
-                let sendBuf = websocket.createData(sendMsg);
-                s.write(sendBuf);
+                let sendMsg = "server recieved message :" + data;
+                websocket.writeData(websocket.createData(sendMsg));
             });
         })
         .on('close', () => {
@@ -17,8 +18,5 @@ exports.bindSocketEvent = (socket) => {
         })
         .on('end', () => {
             console.log('socket end');
-        })
-        .on('send', (data) => { //自定义事件
-           
-        })
+        });
 };
